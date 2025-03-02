@@ -1,27 +1,47 @@
 #!/bin/bash
+#
+# .git/hooks/pre-commit
+#
+# This script sends staged PHP files to the "evaluate_code.php" script,
+# then prints the AI's feedback. Adjust or expand this logic as needed.
 
-# Define the path to the PHP script
-HOOK_DIR=$(dirname "$0")
-PHP_SCRIPT="C:\xampp\htdocs\code_checker\code_checker.php"
+# 1) Collect staged *.php files
+STAGED_PHP_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E "\.php$")
 
-# Find staged PHP files
-STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.php$')
-
-if [ -z "$STAGED_FILES" ]; then
-    echo "No PHP files staged for commit."
+# If no PHP files are staged, do nothing
+if [ -z "$STAGED_PHP_FILES" ]; then
     exit 0
 fi
 
-echo "Running OpenAI code quality check..."
+# 2) Loop through each staged PHP file
+for file in $STAGED_PHP_FILES; do
+    if [ -f "$file" ]; then
+        echo "Analyzing: $file"
 
-# Pass staged files to the PHP script
-php "$PHP_SCRIPT" $STAGED_FILES
+        # Read the file contents
+        FILE_CONTENT=$(cat "$file")
 
-# Check the exit code of the PHP script
-if [ $? -ne 0 ]; then
-    echo "❌ Commit rejected due to code quality issues."
-    exit 1
-fi
+        # Pass content to the evaluate_code.php script
+        # and store the response from OpenAI in a variable
+        AI_RESPONSE=$(php C:\xampp\htdocs\code_checker\code_checker.php "$FILE_CONTENT")
 
-echo "✅ Code quality check passed."
+        # Print the AI's feedback
+        echo "----------------------------------------"
+        echo "AI Feedback:"
+        echo "$AI_RESPONSE"
+        echo "----------------------------------------"
+
+        # 3) (Optional) Decide if you want to block the commit
+        # Example: if "Critical issue" appears in the AI's feedback
+        # then block the commit
+        #
+        # if echo "$AI_RESPONSE" | grep -qi "critical issue"; then
+        #     echo "OpenAI flagged a critical issue in $file."
+        #     echo "Commit aborted."
+        #     exit 1
+        # fi
+    fi
+done
+
+# If we reach here, allow the commit
 exit 0
