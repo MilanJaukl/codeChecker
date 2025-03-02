@@ -11,7 +11,7 @@
  */
 
 // 1. Insert your OpenAI API key
-$openaiApiKey = getenv("OPENAI_API_KEY");
+$openaiApiKey = getenv('OPENAI_API_KEY');
 
 // 2. Get the code to evaluate from argv[1]
 $codeToEvaluate = $argv[1] ?? "";
