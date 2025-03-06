@@ -1,66 +1,135 @@
 <?php
+require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/database.php';
 
-/**
- * evaluate_code.php
- * 
- * Usage (example):
- *   php evaluate_code.php "<?php echo 'Hello'; ?>"
- * 
- * This script sends the provided code to OpenAI's Chat API
- * and returns the model's response.
- */
+use GuzzleHttp\Client;
+use GuzzleHttp\Promise;
 
-// 1. Insert your OpenAI API key
-$openaiApiKey = getenv('OPENAI_API_KEY');
+header("Access-Control-Allow-Origin: *");
+header("Content-Type: application/json");
 
-// 2. Get the code to evaluate from argv[1]
-$codeToEvaluate = $argv[1] ?? "";
+// Load environment variables
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
+$dotenv->load();
 
-// 3. Prepare the Chat Completion API request
-$url = "https://api.openai.com/v1/chat/completions";
-$headers = [
-    "Content-Type: application/json",
-    "Authorization: Bearer {$openaiApiKey}"
-];
+$openaiApiKey = $_ENV['OPENAI_API_KEY'];
 
-$data = [
-    "model" => "gpt-3.5-turbo",
-    "messages" => [
-        [
-            "role" => "system",
-            "content" => "You are a helpful assistant that reviews PHP code for potential issues."
-        ],
-        [
-            "role" => "user",
-            "content" => "Please analyze the following PHP code and identify any potential bugs, security issues, or improvements:\n\n" . $codeToEvaluate
-        ]
+$data = json_decode(file_get_contents("php://input"), true);
+
+
+// Extract data
+$fileName = $data['file_name'] ?? '';
+$codeToEvaluate = $data['code'] ?? '';
+$commitHash = $data['commit_hash'] ?? '';
+$repository = $data['repository'] ?? '';
+$branch = $data['branch'] ?? '';
+$commitMessage = $data['commit_message'] ?? '';
+$userName = $data['user_name'] ?? '';
+
+if (empty($codeToEvaluate) || empty($commitHash)) {
+    echo json_encode(["error" => "Missing code or commit hash"]);
+    exit;
+}
+
+
+$client = new Client([
+    'base_uri' => 'https://api.openai.com/',
+    'headers' => [
+        'Authorization' => "Bearer {$openaiApiKey}",
+        'Content-Type'  => 'application/json',
     ],
-    "max_tokens" => 500,
-    "temperature" => 0.2
-];
+]);
 
-// 4. Send request via cURL
-$ch = curl_init($url);
-curl_setopt($ch, CURLOPT_POST, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+$agents = require __DIR__ . '/agents.php';
 
-$response = curl_exec($ch);
-if (curl_errno($ch)) {
-    fwrite(STDERR, "cURL error: " . curl_error($ch) . "\n");
-    exit(1);
+
+$promises = [];
+
+foreach ($agents as $key => $agent) {
+    $payload = [
+        "model" => "gpt-4o",
+        "messages" => [
+            ["role" => "system", "content" => $agent],
+            ["role" => "user", "content" => "PHP code:\n\n" . $codeToEvaluate]
+        ],
+        "max_tokens" => 500,
+        "temperature" => 0.2,
+        "response_format" => [
+            'type' => 'json_object'
+        ]
+    ];
+
+    $promises[$key] = $client->postAsync('v1/chat/completions', [
+        'json' => $payload
+    ]);
 }
-curl_close($ch);
 
-// 5. Decode the response and print the content
-$decoded = json_decode($response, true);
+// Prepare API request
+// $url = "https://api.openai.com/v1/chat/completions";
+// $payload = [
+//     "model" => "gpt-4o",
+//     "messages" => [
+//         ["role" => "system", "content" => $agents['func']],
+//         ["role" => "user", "content" => "PHP code:\n\n" . $codeToEvaluate]
+//     ],
+//     "max_tokens" => 500,
+//     "temperature" => 0.2
+// ];
 
-if (isset($decoded['choices'][0]['message']['content'])) {
-    $evaluation = $decoded['choices'][0]['message']['content'];
-    // Print the response to STDOUT
-    echo $evaluation;
-} else {
-    // If there's no valid response, we just show the raw response or an error
-    echo "No valid response from model.\n";
+// $client = new Client();
+
+$responses = Promise\Utils::unwrap($promises);
+
+foreach ($responses as $agent => $response) {
+    $body = json_decode($response->getBody()->getContents(), true);
+    $review = $body['choices'][0]['message']['content'] ?? "No response received";
+    storeInDatabase($review, $agent);
 }
+
+function storeInDatabase($review, $agentName)
+{
+    global $database, $fileName, $repository, $branch, $commitHash, $commitMessage, $userName, $codeToEvaluate;
+
+    $stmt = $database->prepare("INSERT INTO reviews (file_name, repository, branch, commit_hash, commit_message, user_name, code, review, agent) 
+                                VALUES (:file_name, :repository, :branch, :commit_hash, :commit_message, :user_name, :code, :review, :agent)");
+    $stmt->bindValue(':file_name', $fileName, SQLITE3_TEXT);
+    $stmt->bindValue(':repository', $repository, SQLITE3_TEXT);
+    $stmt->bindValue(':branch', $branch, SQLITE3_TEXT);
+    $stmt->bindValue(':commit_hash', $commitHash, SQLITE3_TEXT);
+    $stmt->bindValue(':commit_message', $commitMessage, SQLITE3_TEXT);
+    $stmt->bindValue(':user_name', $userName, SQLITE3_TEXT);
+    $stmt->bindValue(':code', $codeToEvaluate, SQLITE3_TEXT);
+    $stmt->bindValue(':review', $review, SQLITE3_TEXT);
+    $stmt->bindValue(':agent', $agentName, SQLITE3_TEXT);
+    $stmt->execute();
+}
+
+// try {
+//     $response = $client->post($url, [
+//         'headers' => [
+//             'Content-Type' => 'application/json',
+//             'Authorization' => "Bearer {$openaiApiKey}"
+//         ],
+//         'json' => $payload
+//     ]);
+
+//     $body = json_decode($response->getBody()->getContents(), true);
+//     $review = $body['choices'][0]['message']['content'] ?? "No response received";
+
+//     // Store review in database
+//     $stmt = $database->prepare("INSERT INTO reviews (file_name, repository, branch, commit_hash, commit_message, user_name, code, review) 
+//                                 VALUES (:file_name, :repository, :branch, :commit_hash, :commit_message, :user_name, :code, :review)");
+//     $stmt->bindValue(':file_name', $fileName, SQLITE3_TEXT);
+//     $stmt->bindValue(':repository', $repository, SQLITE3_TEXT);
+//     $stmt->bindValue(':branch', $branch, SQLITE3_TEXT);
+//     $stmt->bindValue(':commit_hash', $commitHash, SQLITE3_TEXT);
+//     $stmt->bindValue(':commit_message', $commitMessage, SQLITE3_TEXT);
+//     $stmt->bindValue(':user_name', $userName, SQLITE3_TEXT);
+//     $stmt->bindValue(':code', $codeToEvaluate, SQLITE3_TEXT);
+//     $stmt->bindValue(':review', $review, SQLITE3_TEXT);
+//     $stmt->execute();
+
+//     echo json_encode(["review" => $review]);
+// } catch (\Exception $e) {
+//     echo json_encode(["error" => "Request error: " . $e->getMessage()]);
+// }

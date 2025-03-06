@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>AI Code Quality Dashboard</title>
+    <!-- Tailwind CSS via CDN (you can also self-host a compiled version) -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-php.min.js"></script>
+    <style>
+      .tab_switch.active {
+        color: blue;
+        text-decoration: underline;
+      }
+
+      .tab_switch {
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body class="flex overflow-x-hidden max-w-full">
+    <!-- Sidebar -->
+    <div class="w-1/6 bg-gray-100 p-4 min-h-screen">
+      <label class="block mb-2">Repository</label>
+      <select id="repositories" class="w-full border p-1 mb-4">
+        <option>Select Repository</option>
+      </select>
+
+      <label class="block mb-2">Branch</label>
+      <select id="branches" class="w-full border p-1 mb-4">
+        <option>Vyberte Repository</option>
+      </select>
+
+      <div>
+        <ul id="commits"></ul>
+      </div>
+
+      <div id="filesListContainer" class="files_list_container border hidden">
+        <div
+          class="files_list_container__header flex justify-between items-center p-2 bg-gray-300 border-b"
+        >
+          <span>File</span>
+          <span>X</span>
+        </div>
+        <div id="filesList" class="flex flex-col gap-2 pt-2 p-1"></div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-8">
+      <div class="flex justify-around">
+        <div class="text-center">
+          <div
+            class="w-24 h-24 rounded-full border-8 border-gray-300 flex items-center justify-center"
+          >
+            <span class="text-lg font-bold">5</span>
+          </div>
+          <p class="mt-2 tab_switch active" data-tab-id="func_tab">
+            Functionality & Standarts
+          </p>
+        </div>
+        <div class="text-center">
+          <div class="w-24 h-24 rounded-full border-8 border-gray-300"></div>
+          <p class="mt-2 tab_switch" data-tab-id="maint_tab">Maintainability</p>
+        </div>
+        <div class="text-center">
+          <div class="w-24 h-24 rounded-full border-8 border-gray-300"></div>
+          <p class="mt-2 tab_switch" data-tab-id="robus_tab">Robustness</p>
+        </div>
+        <div class="text-center">
+          <div class="w-24 h-24 rounded-full border-8 border-gray-300"></div>
+          <p class="mt-2 tab_switch" data-tab-id="perfo_tab">Performance</p>
+        </div>
+        <div class="text-center">
+          <div class="w-24 h-24 rounded-full border-8 border-gray-300"></div>
+          <p class="mt-2 tab_switch" data-tab-id="secur_tab">Security</p>
+        </div>
+      </div>
+
+      <!-- Line Separator -->
+      <div class="border-t mt-4"></div>
+
+      <div>
+        <div id="func_tab" class="flex gap-2 tab active">
+          <div class="w-1/2 codeWrapper"></div>
+          <div class="w-1/2 flex flex-col gap-2 issuesWrapper">
+            <div>
+              <h2 class="">Požadavky</h2>
+              <p>Dělá funkce to co má ?</p>
+            </div>
+
+            <div>
+              <h2 class="">Edge case</h2>
+              <p>Dělá funkce to co má ?</p>
+            </div>
+
+            <div>
+              <h2 class="">Logical correctnes</h2>
+              <p>Dělá funkce to co má ?</p>
+            </div>
+          </div>
+        </div>
+        <div id="maint_tab" class="flex gap-2 tab hidden">
+          <div class="w-1/2 codeWrapper"></div>
+          <div class="w-1/2 issuesWrapper"></div>
+        </div>
+        <div id="robus_tab" class="flex gap-2 hidden tab">
+          <div class="w-1/2 codeWrapper"></div>
+          <div class="w-1/2 issuesWrapper"></div>
+        </div>
+        <div id="perfo_tab" class="flex gap-2 tab hidden">
+          <div class="w-1/2 codeWrapper"></div>
+          <div class="w-1/2 issuesWrapper"></div>
+        </div>
+        <div id="secur_tab" class="flex gap-2 tab hidden">
+          <div class="w-1/2 codeWrapper"></div>
+          <div class="w-1/2 issuesWrapper"></div>
+        </div>
+      </div>
+    </div>
+    <script src="script.js"></script>
+  </body>
+</html>

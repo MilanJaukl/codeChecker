@@ -1,47 +1,42 @@
 #!/bin/bash
-#
-# .git/hooks/pre-commit
-#
-# This script sends staged PHP files to the "evaluate_code.php" script,
-# then prints the AI's feedback. Adjust or expand this logic as needed.
 
-# 1) Collect staged *.php files
-STAGED_PHP_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E "\.php$")
+# Get repository name
+REPO_NAME=$(basename `git rev-parse --show-toplevel`)
 
-# If no PHP files are staged, do nothing
-if [ -z "$STAGED_PHP_FILES" ]; then
+# Get current branch
+BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)
+
+# Get commit message (staged commit message)
+COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+
+# Get username (from Git config)
+USER_NAME=$(git config user.name)
+
+# Get staged PHP files
+FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.php$')
+
+if [ -z "$FILES" ]; then
     exit 0
 fi
 
-# 2) Loop through each staged PHP file
-for file in $STAGED_PHP_FILES; do
-    if [ -f "$file" ]; then
-        echo "Analyzing: $file"
+COMMIT_HASH=$(git rev-parse HEAD)
 
-        # Read the file contents
-        FILE_CONTENT=$(cat "$file")
+for FILE in $FILES; do
+    CODE=$(cat "$FILE")
 
-        # Pass content to the evaluate_code.php script
-        # and store the response from OpenAI in a variable
-        AI_RESPONSE=$(php C:\xampp\htdocs\code_checker\code_checker.php "$FILE_CONTENT")
+    json_payload=$(jq -n \
+    --arg file_name "$FILE" \
+    --arg code "$CODE" \
+    --arg commit_hash "$COMMIT_HASH" \
+    --arg repository "$REPO_NAME" \
+    --arg branch "$BRANCH_NAME" \
+    --arg commit_message "$COMMIT_MESSAGE" \
+    --arg user_name "$USER_NAME" \
+    '{file_name: $file_name, code: $code, commit_hash: $commit_hash, repository: $repository, branch: $branch, commit_message: $commit_message, user_name: $user_name}')
 
-        # Print the AI's feedback
-        echo "----------------------------------------"
-        echo "AI Feedback:"
-        echo "$AI_RESPONSE"
-        echo "----------------------------------------"
+RESPONSE=$(curl -s -X POST http://localhost:8000 \
+    -H "Content-Type: application/json" \
+    -d "$json_payload")
 
-        # 3) (Optional) Decide if you want to block the commit
-        # Example: if "Critical issue" appears in the AI's feedback
-        # then block the commit
-        #
-        # if echo "$AI_RESPONSE" | grep -qi "critical issue"; then
-        #     echo "OpenAI flagged a critical issue in $file."
-        #     echo "Commit aborted."
-        #     exit 1
-        # fi
-    fi
+    echo "AI Review Response: $RESPONSE"
 done
-
-# If we reach here, allow the commit
-exit 0

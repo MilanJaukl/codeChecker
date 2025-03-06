@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <!-- Tabs component -->
+    <div class="tabs container mx-auto mt-5">
+      <p class="text-xl">Tabs</p>
+        <div class="flex flex-wrap">
+          <div class="w-full">
+            <ul class="tabs_header flex mb-0 list-none flex-wrap pt-3 pb-4 flex-row">
+              <li class="-mb-px mr-2 last:mr-0 flex-auto text-center">
+                <a
+                  class="text-xs font-bold uppercase px-5 py-3 shadow-lg rounded block leading-normal text-white bg-blue-600"
+                  onclick="changeTab(event, 'tab1')"
+                  href="#"
+                >
+                  Tab 1
+                </a>
+              </li>
+              <li class="-mb-px mr-2 last:mr-0 flex-auto text-center">
+                <a
+                  class="text-xs font-bold uppercase px-5 py-3 shadow-lg rounded block leading-normal text-blue-600 bg-white"
+                  onclick="changeTab(event, 'tab2')"
+                  href="#"
+                >
+                  Tab 2
+                </a>
+              </li>
+              <li class="-mb-px mr-2 last:mr-0 flex-auto text-center">
+                <a
+                  class="text-xs font-bold uppercase px-5 py-3 shadow-lg rounded block leading-normal text-blue-600 bg-white"
+                  onclick="changeTab(event, 'tab3')"
+                  href="#"
+                >
+                  Tab 3
+                </a>
+              </li>
+            </ul>
+            <div
+              class="relative flex flex-col min-w-0 break-words bg-white w-full mb-6 shadow-lg rounded"
+            >
+              <div class="tabs_content px-4 py-5 flex-auto">
+                <div class="tab-content tab-space">
+                  <div class="block" id="tab1">
+                    <p>Content for Tab 1</p>
+                  </div>
+                  <div class="hidden" id="tab2">
+                    <p>Content for Tab 2</p>
+                  </div>
+                  <div class="hidden" id="tab3">
+                    <p>Content for Tab 3</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        function changeTab(event, tabID) {
+          let element = event.target;
+          while (element.nodeName !== "A") {
+            element = element.parentNode;
+          }
+          let ulElement = element.parentNode.parentNode;
+          let aElements = ulElement.querySelectorAll("li > a");
+          let tabContents = document.querySelectorAll(".tab-content > div");
+
+          aElements.forEach((a) => {
+            a.classList.remove("text-white", "bg-blue-600");
+            a.classList.add("text-blue-600", "bg-white");
+          });
+
+          tabContents.forEach((tabContent) => {
+            tabContent.classList.add("hidden");
+            tabContent.classList.remove("block");
+          });
+
+          element.classList.remove("text-blue-600", "bg-white");
+          element.classList.add("text-white", "bg-blue-600");
+          document.getElementById(tabID).classList.remove("hidden");
+          document.getElementById(tabID).classList.add("block");
+        }
+      </script>
+    </div>
+    <!-- /Tabs component -->
+    <hr class="my-4 border-gray-300" />
+  </body>
+</html>
